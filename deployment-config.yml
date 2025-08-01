@@ -1,0 +1,124 @@
+# Plausible Community Edition Deployment Configuration
+# This file contains environment-specific configurations for deployment
+
+environments:
+  production:
+    base_url: "https://plausible.windifi.com"
+    http_port: 80
+    https_port: 443
+    database:
+      postgres_version: "16-alpine"
+      clickhouse_version: "24.12-alpine"
+    resources:
+      memory_limit: "2g"
+      cpu_limit: "1.0"
+    ssl:
+      enabled: true
+      auto_cert: true
+    monitoring:
+      enabled: true
+      health_check_interval: 30s
+
+  staging:
+    base_url: "https://staging-plausible.windifi.com"
+    http_port: 8000
+    https_port: 8443
+    database:
+      postgres_version: "16-alpine"
+      clickhouse_version: "24.12-alpine"
+    resources:
+      memory_limit: "1g"
+      cpu_limit: "0.5"
+    ssl:
+      enabled: true
+      auto_cert: true
+    monitoring:
+      enabled: true
+      health_check_interval: 60s
+
+  development:
+    base_url: "http://localhost:8000"
+    http_port: 8000
+    database:
+      postgres_version: "16-alpine"
+      clickhouse_version: "24.12-alpine"
+    resources:
+      memory_limit: "512m"
+      cpu_limit: "0.25"
+    ssl:
+      enabled: false
+    monitoring:
+      enabled: false
+
+# Common configuration for all environments
+common:
+  image:
+    plausible: "ghcr.io/plausible/community-edition:v3.0.1"
+  volumes:
+    - db_data: "/var/lib/postgresql/data"
+    - event_data: "/var/lib/clickhouse"
+    - event_logs: "/var/log/clickhouse-server"
+    - plausible_data: "/var/lib/plausible"
+  environment:
+    required:
+      - BASE_URL
+      - SECRET_KEY_BASE
+    optional:
+      - TOTP_VAULT_KEY
+      - DISABLE_REGISTRATION
+      - ENABLE_EMAIL_VERIFICATION
+      - HTTP_PORT
+      - HTTPS_PORT
+      - DATABASE_URL
+      - CLICKHOUSE_DATABASE_URL
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - IP_GEOLOCATION_DB
+      - MAXMIND_LICENSE_KEY
+      - MAILER_ADAPTER
+      - SMTP_HOST_ADDR
+      - SMTP_HOST_PORT
+      - SMTP_USER_NAME
+      - SMTP_USER_PWD
+
+# Deployment strategies
+deployment_strategies:
+  rolling:
+    max_unavailable: 1
+    max_surge: 1
+  blue_green:
+    enabled: false
+    switch_timeout: 300s
+  canary:
+    enabled: false
+    traffic_percentage: 10
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *" # Daily at 2 AM
+  retention:
+    days: 30
+    copies: 7
+  storage:
+    type: "local" # or "s3", "gcs", "azure"
+    path: "/backups"
+
+# Monitoring and alerting
+monitoring:
+  metrics:
+    enabled: true
+    port: 9090
+  logging:
+    level: "info"
+    format: "json"
+  alerts:
+    enabled: true
+    endpoints:
+      - slack
+      - email
+    conditions:
+      - service_down
+      - high_memory_usage
+      - high_cpu_usage
+      - database_connection_failed

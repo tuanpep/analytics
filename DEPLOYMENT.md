@@ -1,367 +1,245 @@
-# Plausible Analytics Deployment Guide
+# Plausible Community Edition Deployment Guide
 
-This guide provides complete instructions for setting up and deploying Plausible Analytics with automated CI/CD.
+## 🌐 Production Deployment: https://plausible.windifi.com
+
+This guide covers the deployment of Plausible Community Edition using the updated CI/CD pipeline and deployment scripts.
 
 ## 📋 Prerequisites
 
-- A Linux server (Ubuntu 20.04+ or CentOS 8+ recommended)
-- Domain name pointing to your server
-- GitHub repository with deployment keys configured
-- Basic knowledge of Docker and Linux administration
+- Docker and Docker Compose installed
+- Server with at least 2GB RAM
+- Domain configured to point to your server
+- SSL certificate (Let's Encrypt recommended)
 
-## 🚀 Quick Start
+## 🚀 Quick Deployment
 
-### 1. Server Setup
-
-Run the server setup script on your target server:
+### 1. Clone and Setup
 
 ```bash
-# Download and run the server setup script
-curl -fsSL https://raw.githubusercontent.com/tuanpep/analytics/main/server-setup.sh | sudo bash
-
-# Or clone the repository and run locally
-git clone https://github.com/tuanpep/analytics.git
+# Clone the repository
+git clone https://github.com/your-org/analytics.git
 cd analytics
-sudo ./server-setup.sh
+
+# Make deployment script executable
+chmod +x scripts/deploy.sh
 ```
 
-This script will:
+### 2. Configure Environment
 
-- Install Docker and Docker Compose
-- Create a deploy user
-- Set up firewall rules
-- Configure log rotation
-- Install security tools
-
-### 2. Repository Setup
-
-Clone your repository to the server:
+Create a `.env` file with your production settings:
 
 ```bash
-# Switch to deploy user
-sudo -u deploy -i
+# Required Configuration
+BASE_URL=https://plausible.windifi.com
+SECRET_KEY_BASE=$(openssl rand -base64 48)
+TOTP_VAULT_KEY=$(openssl rand -base64 32)
 
-# Clone repository (if not already cloned)
-cd /home/tuanbt
-# Repository should already be at /home/tuanbt/analytics
-cd analytics
+# Web Configuration
+HTTP_PORT=80
+HTTPS_PORT=443
 ```
 
-### 3. Environment Configuration
-
-Create your environment file:
+### 3. Deploy
 
 ```bash
-# Copy the example environment file
-cp env.example .env
+# Deploy to production
+./scripts/deploy.sh deploy -e production
 
-# Edit with your actual values
-nano .env
+# Or using environment variables
+ENVIRONMENT=production ./scripts/deploy.sh deploy
 ```
 
-**Required environment variables:**
+## 🔧 Environment-Specific Configurations
+
+### Production Environment
+
+- **URL**: https://plausible.windifi.com
+- **Ports**: 80 (HTTP), 443 (HTTPS)
+- **Resources**: 2GB RAM, 1 CPU
+- **SSL**: Auto-configured with Let's Encrypt
+
+### Staging Environment
+
+- **URL**: https://staging-plausible.windifi.com
+- **Ports**: 8000 (HTTP), 8443 (HTTPS)
+- **Resources**: 1GB RAM, 0.5 CPU
+
+### Development Environment
+
+- **URL**: http://localhost:8000
+- **Ports**: 8000 (HTTP)
+- **Resources**: 512MB RAM, 0.25 CPU
+
+## 📊 CI/CD Pipeline
+
+### GitHub Actions Workflow
+
+The deployment pipeline includes:
+
+1. **Validation**: Checks Docker Compose configuration
+2. **Deployment**: Deploys services with health checks
+3. **Verification**: Tests application accessibility
+4. **Health Check**: Comprehensive service health verification
+5. **Rollback**: Automatic rollback on failure
+6. **Cleanup**: Resource cleanup after deployment
+
+### Triggering Deployment
 
 ```bash
-BASE_URL=https://your-domain.com
-SECRET_KEY_BASE=your-secret-key-base-here
-TOTP_VAULT_KEY=your-totp-vault-key-here
-DATABASE_URL=postgres://plausible:plausible@postgres:5432/plausible
-CLICKHOUSE_DATABASE_URL=http://clickhouse:8123/plausible?user=default&password=
-ENVIRONMENT=prod
+# Automatic deployment on push to main/stable
+git push origin main
+
+# Manual deployment via GitHub Actions
+# Go to Actions > Deploy Plausible Community Edition > Run workflow
 ```
 
-**Generate secrets:**
+## 🛠️ Management Commands
+
+### Service Management
 
 ```bash
-# Generate SECRET_KEY_BASE
-openssl rand -base64 64
-
-# Generate TOTP_VAULT_KEY
-openssl rand -base64 32
-```
-
-### 4. GitHub Secrets Configuration
-
-Configure the following secrets in your GitHub repository (Settings → Secrets and variables → Actions):
-
-**Required Secrets:**
-
-- `VPS_SSH_KEY`: Private SSH key for server access
-- `VPS_HOST`: Your server IP address or hostname
-- `VPS_USER`: SSH username (usually "deploy")
-- `SECRET_KEY_BASE`: Application secret key
-- `TOTP_VAULT_KEY`: 2FA vault key
-- `SLACK_WEBHOOK_URL`: (Optional) Slack webhook for notifications
-
-**Required Variables:**
-
-- `BASE_URL`: Your application URL
-- `DATABASE_URL`: PostgreSQL connection string
-- `CLICKHOUSE_DATABASE_URL`: ClickHouse connection string
-- `ENVIRONMENT`: "prod" for production
-
-### 5. SSH Key Setup
-
-Generate SSH keys for deployment:
-
-```bash
-# On your local machine
-ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/github_deploy
-
-# Add public key to server
-ssh-copy-id -i ~/.ssh/github_deploy.pub deploy@your-server.com
-
-# Add private key to GitHub secrets as VPS_SSH_KEY
-cat ~/.ssh/github_deploy | pbcopy  # macOS
-cat ~/.ssh/github_deploy | xclip -selection clipboard  # Linux
-```
-
-## 🔧 Manual Deployment
-
-If you need to deploy manually:
-
-```bash
-# On your server as deploy user
-cd /home/deploy/analytics
-
-# Run deployment
-./deploy.sh main production
-
-# Check health
-./health-check.sh
-```
-
-## 🔄 CI/CD Workflow
-
-The deployment workflow automatically triggers on:
-
-- **Push to `main`**: Deploys to production
-- **Push to `develop`**: Deploys to staging
-- **Manual workflow dispatch**: Deploy to chosen environment
-
-### Workflow Steps:
-
-1. **Test**: Runs full test suite with PostgreSQL and ClickHouse
-2. **Security**: CodeQL security scanning
-3. **Deploy**: SSH to server and run deployment script
-4. **Health Check**: Verify application is running correctly
-5. **Notifications**: Send Slack notifications on success/failure
-
-## 📊 Monitoring and Health Checks
-
-### Automated Health Checks
-
-The `health-check.sh` script monitors:
-
-- Container status
-- Database connectivity
-- Application responsiveness
-- Disk space usage
-- Memory usage
-- Recent error logs
-
-### Manual Health Check
-
-```bash
-# Run comprehensive health check
-./health-check.sh
-
-# Quick container status
-docker-compose ps
+# Check service status
+./scripts/deploy.sh status -e production
 
 # View logs
-docker-compose logs -f plausible
-```
-
-### Log Locations
-
-- Deployment logs: `/var/log/plausible-deploy.log`
-- Application logs: `docker-compose logs plausible`
-- Database logs: `docker-compose logs postgres clickhouse`
-
-## 🔒 Security Considerations
-
-### Firewall Configuration
-
-The setup script configures these ports:
-
-- 22 (SSH)
-- 80 (HTTP)
-- 443 (HTTPS)
-- 8000 (Plausible)
-
-### SSL/TLS Setup
-
-For production, set up a reverse proxy with SSL:
-
-```bash
-# Install Nginx
-sudo apt install nginx certbot python3-certbot-nginx
-
-# Configure Nginx (example)
-sudo nano /etc/nginx/sites-available/plausible
-
-# Get SSL certificate
-sudo certbot --nginx -d your-domain.com
-```
-
-Example Nginx configuration:
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**Containers not starting:**
-
-```bash
-# Check container logs
-docker-compose logs
+./scripts/deploy.sh logs -e production
 
 # Restart services
-docker-compose down && docker-compose up -d
+./scripts/deploy.sh restart -e production
+
+# Stop services
+./scripts/deploy.sh stop -e production
+
+# Start services
+./scripts/deploy.sh start -e production
 ```
 
-**Database connection issues:**
-
-```bash
-# Check database status
-docker-compose exec postgres pg_isready -U plausible
-docker-compose exec clickhouse clickhouse-client --query "SELECT 1"
-
-# Reset databases (⚠️ DATA LOSS)
-docker-compose down -v
-docker-compose up -d
-```
-
-**Permission issues:**
-
-```bash
-# Fix ownership
-sudo chown -R deploy:deploy /home/deploy/analytics
-
-# Fix script permissions
-chmod +x deploy.sh health-check.sh
-```
-
-### Getting Help
-
-1. Check the health check report: `./health-check.sh`
-2. Review deployment logs: `tail -f /var/log/plausible-deploy.log`
-3. Check application logs: `docker-compose logs -f plausible`
-4. Verify environment variables: `docker-compose config`
-
-## 📈 Scaling and Performance
-
-### Resource Requirements
-
-**Minimum:**
-
-- 2 CPU cores
-- 4GB RAM
-- 20GB storage
-
-**Recommended:**
-
-- 4+ CPU cores
-- 8GB+ RAM
-- 50GB+ SSD storage
-
-### Performance Tuning
-
-Edit your `.env` file:
-
-```bash
-# ClickHouse performance
-CLICKHOUSE_MAX_BUFFER_SIZE_BYTES=500000
-CLICKHOUSE_FLUSH_INTERVAL_MS=3000
-CLICKHOUSE_INGEST_POOL_SIZE=10
-
-# Application performance
-OTEL_SAMPLER_RATIO=0.01
-IMPORTED_MAX_BUFFER_SIZE=50000
-```
-
-### Backup Strategy
-
-Backups are automatically created during deployment in `/home/deploy/backups/`:
-
-- PostgreSQL data
-- ClickHouse data
-- Application data
-
-Manual backup:
+### Backup and Recovery
 
 ```bash
 # Create backup
-docker run --rm -v analytics_postgres-data:/data -v /home/deploy/backups:/backup alpine tar czf /backup/manual-postgres-$(date +%Y%m%d).tar.gz -C /data .
+./scripts/deploy.sh backup -e production
+
+# Restore from backup
+BACKUP_PATH=backups/20240801_143022 ./scripts/deploy.sh restore -e production
 ```
 
-## 🔄 Updates and Maintenance
-
-### Updating the Application
-
-Updates are handled automatically through the CI/CD pipeline. For manual updates:
+### Updates and Maintenance
 
 ```bash
-cd /home/deploy/analytics
-git pull origin main
-./deploy.sh main production
+# Update to latest version
+./scripts/deploy.sh update -e production
+
+# Run health checks
+./scripts/deploy.sh health -e production
 ```
 
-### Database Migrations
+## 🔐 Security Configuration
 
-Migrations run automatically during deployment. For manual migration:
+### Environment Variables
+
+Set these in your GitHub repository secrets:
+
+- `SECRET_KEY_BASE`: Base64 encoded secret key
+- `TOTP_VAULT_KEY`: TOTP vault encryption key
+- `PRODUCTION_BASE_URL`: https://plausible.windifi.com
+- `PRODUCTION_HTTP_PORT`: 80
+- `PRODUCTION_HTTPS_PORT`: 443
+
+### SSL Configuration
+
+For automatic SSL with Let's Encrypt:
+
+1. Ensure your domain points to the server
+2. Set `HTTP_PORT=80` and `HTTPS_PORT=443`
+3. The application will automatically request SSL certificates
+
+## 📈 Monitoring and Health Checks
+
+### Health Check Endpoints
+
+- **Application**: https://plausible.windifi.com/health
+- **PostgreSQL**: Internal health check
+- **ClickHouse**: Internal health check
+
+### Monitoring Features
+
+- Automatic health checks every 30 seconds
+- Service status monitoring
+- Resource usage tracking
+- Error logging and alerting
+
+## 🔄 Backup Strategy
+
+### Automated Backups
+
+- **Schedule**: Daily at 2 AM
+- **Retention**: 30 days, 7 copies
+- **Storage**: Local backup directory
+- **Components**: PostgreSQL, ClickHouse, Configuration
+
+### Manual Backups
 
 ```bash
-docker-compose exec plausible /app/bin/plausible eval "Plausible.Release.migrate()"
+# Create immediate backup
+./scripts/deploy.sh backup -e production
+
+# Backup location: backups/YYYYMMDD_HHMMSS/
 ```
 
-### Maintenance Tasks
+## 🚨 Troubleshooting
+
+### Common Issues
+
+1. **Services not starting**
+
+   ```bash
+   docker compose logs
+   ./scripts/deploy.sh health -e production
+   ```
+
+2. **SSL certificate issues**
+
+   - Verify domain DNS settings
+   - Check firewall settings (ports 80, 443)
+   - Review Let's Encrypt logs
+
+3. **Database connection issues**
+   ```bash
+   docker compose exec plausible_db pg_isready -U postgres
+   docker compose exec plausible_events_db wget -O - http://127.0.0.1:8123/ping
+   ```
+
+### Logs and Debugging
 
 ```bash
-# Clean up old Docker images
-docker system prune -f
+# View all service logs
+./scripts/deploy.sh logs -e production
 
-# Rotate logs manually
-sudo logrotate /etc/logrotate.d/plausible
-
-# Update system packages
-sudo apt update && sudo apt upgrade -y
+# View specific service logs
+docker compose logs plausible
+docker compose logs plausible_db
+docker compose logs plausible_events_db
 ```
+
+## 📚 Additional Resources
+
+- [Plausible Community Edition Wiki](https://github.com/plausible/community-edition/wiki)
+- [Configuration Guide](https://github.com/plausible/community-edition/wiki/configuration)
+- [Reverse Proxy Setup](https://github.com/plausible/community-edition/wiki/reverse-proxy)
+- [Backup and Restore](https://github.com/plausible/community-edition/wiki/backup-restore)
+
+## 🆘 Support
+
+For deployment issues:
+
+1. Check the troubleshooting section
+2. Review service logs
+3. Run health checks
+4. Consult the Plausible Community Edition documentation
 
 ---
 
-## 📞 Support
-
-For issues and questions:
-
-1. Check this documentation
-2. Review GitHub Issues
-3. Check application logs
-4. Run health check script
-
-Remember to always test deployments in a staging environment first!
+**Production URL**: https://plausible.windifi.com  
+**Last Updated**: August 2025  
+**Version**: Plausible Community Edition v3.0.1
