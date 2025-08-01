@@ -26,6 +26,12 @@ on:
 
 env:
   CACHE_VERSION: v16
+  BASE_URL: ${{ vars.BASE_URL }}
+  SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+  TOTP_VAULT_KEY: ${{ secrets.TOTP_VAULT_KEY }}
+  DATABASE_URL: ${{ vars.DATABASE_URL }}
+  CLICKHOUSE_DATABASE_URL: ${{ vars.CLICKHOUSE_DATABASE_URL }}
+  ENVIRONMENT: ${{ vars.ENVIRONMENT }}
 
 jobs:
   test:
@@ -33,6 +39,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MIX_ENV: test
+      BASE_URL: ${{ env.BASE_URL }}
+      SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+      TOTP_VAULT_KEY: ${{ secrets.TOTP_VAULT_KEY }}
+      DATABASE_URL: ${{ env.DATABASE_URL }}
+      CLICKHOUSE_DATABASE_URL: ${{ env.CLICKHOUSE_DATABASE_URL }}
+      ENVIRONMENT: ${{ env.ENVIRONMENT }}
     services:
       postgres:
         image: postgres:15
@@ -107,12 +119,26 @@ jobs:
           mix compile --warnings-as-errors --all-warnings
 
       - name: Setup database
+        env:
+          BASE_URL: ${{ env.BASE_URL }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          TOTP_VAULT_KEY: ${{ secrets.TOTP_VAULT_KEY }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          CLICKHOUSE_DATABASE_URL: ${{ env.CLICKHOUSE_DATABASE_URL }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
         run: |
           mix do ecto.create, ecto.migrate
           mix run -e "Tzdata.ReleaseUpdater.poll_for_update"
 
       - name: Run tests
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_tests != 'false' }}
+        env:
+          BASE_URL: ${{ env.BASE_URL }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          TOTP_VAULT_KEY: ${{ secrets.TOTP_VAULT_KEY }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          CLICKHOUSE_DATABASE_URL: ${{ env.CLICKHOUSE_DATABASE_URL }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
         run: |
           mix test --max-failures 1 --warnings-as-errors
           npm test --prefix assets

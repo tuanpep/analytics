@@ -110,6 +110,13 @@ jobs:
       - run: mix deps.get --only $MIX_ENV
       - run: mix compile --warnings-as-errors --all-warnings
       - run: mix do ecto.create, ecto.migrate
+        env:
+          BASE_URL: ${{ vars.BASE_URL }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          TOTP_VAULT_KEY: ${{ secrets.TOTP_VAULT_KEY }}
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
+          CLICKHOUSE_DATABASE_URL: ${{ vars.CLICKHOUSE_DATABASE_URL }}
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
       - run: mix run -e "Tzdata.ReleaseUpdater.poll_for_update"
 
       - run: make minio
@@ -117,12 +124,24 @@ jobs:
       - run: mix test --include slow --include minio --include migrations --include kaffy_quirks --max-failures 1 --warnings-as-errors --partitions 6
         if: env.MIX_ENV == 'test'
         env:
+          BASE_URL: ${{ vars.BASE_URL }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          TOTP_VAULT_KEY: ${{ secrets.TOTP_VAULT_KEY }}
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
+          CLICKHOUSE_DATABASE_URL: ${{ vars.CLICKHOUSE_DATABASE_URL }}
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
           MINIO_HOST_FOR_CLICKHOUSE: "172.17.0.1"
           MIX_TEST_PARTITION: ${{ matrix.mix_test_partition }}
 
       - run: mix test --include slow --include migrations --max-failures 1 --warnings-as-errors --partitions 4
         if: env.MIX_ENV == 'ce_test'
         env:
+          BASE_URL: ${{ vars.BASE_URL }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          TOTP_VAULT_KEY: ${{ secrets.TOTP_VAULT_KEY }}
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
+          CLICKHOUSE_DATABASE_URL: ${{ vars.CLICKHOUSE_DATABASE_URL }}
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
           MIX_TEST_PARTITION: ${{ matrix.mix_test_partition }}
 
   static:
