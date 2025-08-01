@@ -95,7 +95,7 @@ jobs:
           key: ${{ env.MIX_ENV }}-${{ env.CACHE_VERSION }}-${{ github.head_ref || github.ref }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
             ${{ env.MIX_ENV }}-${{ env.CACHE_VERSION }}-${{ github.head_ref || github.ref }}-
-            ${{ env.MIX_ENV }}-${{ env.CACHE_VERSION }}-refs/heads/master-
+            ${{ env.MIX_ENV }}-${{ env.CACHE_VERSION }}-refs/heads/main-
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -174,15 +174,18 @@ jobs:
       - name: Deploy to staging server
         run: |
           ssh -i ~/.ssh/github_deploy -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-            cd /home/deploy
-            ./deploy.sh develop
+            cd /home/deploy/analytics
+            git fetch origin
+            git checkout develop
+            git pull origin develop
+            ./deploy.sh develop staging
           EOF
 
       - name: Health check staging
         run: |
           ssh -i ~/.ssh/github_deploy -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-            sleep 30
-            curl -f http://localhost:8000/ || exit 1
+            cd /home/deploy/analytics
+            ./health-check.sh --timeout 60 --retries 6
           EOF
 
       - name: Notify staging deployment success
@@ -229,15 +232,18 @@ jobs:
       - name: Deploy to production server
         run: |
           ssh -i ~/.ssh/github_deploy -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-            cd /home/deploy
-            ./deploy.sh main
+            cd /home/deploy/analytics
+            git fetch origin
+            git checkout main
+            git pull origin main
+            ./deploy.sh main production
           EOF
 
       - name: Health check production
         run: |
           ssh -i ~/.ssh/github_deploy -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-            sleep 30
-            curl -f http://localhost:8000/ || exit 1
+            cd /home/deploy/analytics
+            ./health-check.sh --timeout 60 --retries 6
           EOF
 
       - name: Notify deployment success

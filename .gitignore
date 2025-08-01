@@ -172,14 +172,13 @@ secrets/
 .dockerignore
 
 # Deployment and server-specific files
-deploy.sh
-deploy-*.sh
-setup-*.sh
+# deploy.sh - now included in repository
+.secrets.tmp
+.env.backup
 add-ssl.sh
 nginx-*.conf
 DNS_SETUP.md
-DEPLOYMENT.md
-DEPLOYMENT_SUMMARY.md
+# DEPLOYMENT.md - now included in repository
 SECURITY_CHECKLIST.md
 SECURITY_SUMMARY.md
 
