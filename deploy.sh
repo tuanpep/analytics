@@ -117,6 +117,19 @@ deploy_application() {
     
     cd "$APP_DIR"
     
+    # Validate environment configuration
+    log "Validating environment configuration..."
+    if [ -f ".env" ]; then
+        base_url=$(grep "^BASE_URL=" .env | cut -d'=' -f2)
+        if [ "$base_url" = "https://your-domain.com" ] || [ -z "$base_url" ]; then
+            warning "BASE_URL is not configured properly in .env file"
+            warning "Current value: $base_url"
+            warning "Please update BASE_URL before deploying to production"
+        fi
+    else
+        warning ".env file not found. Using docker-compose.yml environment variables."
+    fi
+    
     # Stop existing containers
     log "Stopping existing containers..."
     docker-compose down --remove-orphans
