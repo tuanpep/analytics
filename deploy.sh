@@ -8,8 +8,8 @@ set -e
 # Configuration
 BRANCH=${1:-main}
 ENVIRONMENT=${2:-production}
-APP_DIR="/home/deploy/analytics"
-BACKUP_DIR="/home/deploy/backups"
+APP_DIR="/home/tuanbt/analytics"
+BACKUP_DIR="/home/tuanbt/backups"
 LOG_FILE="/var/log/plausible-deploy.log"
 
 # Colors for output
@@ -148,23 +148,36 @@ health_check() {
         error "Some containers failed to start"
     fi
     
-    # Check application health
-    local max_attempts=30
-    local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        log "Health check attempt $attempt/$max_attempts"
-        
-        if curl -f -s http://localhost:8000/api/health >/dev/null 2>&1; then
-            success "Application is healthy"
+    # Use the dedicated health check script
+    if [ -f "./health-check.sh" ]; then
+        log "Running comprehensive health check..."
+        if ./health-check.sh; then
+            success "Application health check passed"
             return 0
+        else
+            error "Application health check failed"
+            return 1
         fi
+    else
+        # Fallback to simple HTTP check
+        local max_attempts=30
+        local attempt=1
         
-        sleep 10
-        ((attempt++))
-    done
-    
-    error "Application health check failed after $max_attempts attempts"
+        while [ $attempt -le $max_attempts ]; do
+            log "Health check attempt $attempt/$max_attempts"
+            
+            if curl -f -s http://localhost:8000 >/dev/null 2>&1; then
+                success "Application is responding"
+                return 0
+            fi
+            
+            sleep 10
+            ((attempt++))
+        done
+        
+        error "Application health check failed after $max_attempts attempts"
+        return 1
+    fi
 }
 
 # Database migration
@@ -196,10 +209,55 @@ cleanup() {
 send_notification() {
     local status=$1
     local message=$2
+    local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
     
     if [ -n "$SLACK_WEBHOOK_URL" ]; then
+        local payload=$(cat <<EOF
+{
+    "text": "🚀 Plausible Analytics Deployment",
+    "blocks": [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Plausible Analytics Deployment*"
+            }
+        },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": "*Status:*\n$status"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Branch:*\n$BRANCH"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Environment:*\n$ENVIRONMENT"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Time:*\n$timestamp"
+                }
+            ]
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Message:*\n$message"
+            }
+        }
+    ]
+}
+EOF
+        )
+        
         curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"🚀 Plausible Analytics Deployment\\n**Status:** $status\\n**Branch:** $BRANCH\\n**Environment:** $ENVIRONMENT\\n**Message:** $message\"}" \
+            --data "$payload" \
             "$SLACK_WEBHOOK_URL" >/dev/null 2>&1 || true
     fi
 }

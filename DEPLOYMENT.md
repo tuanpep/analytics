@@ -17,10 +17,10 @@ Run the server setup script on your target server:
 
 ```bash
 # Download and run the server setup script
-curl -fsSL https://raw.githubusercontent.com/your-org/analytics/main/server-setup.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/tuanpep/analytics/main/server-setup.sh | sudo bash
 
 # Or clone the repository and run locally
-git clone https://github.com/your-org/analytics.git
+git clone https://github.com/tuanpep/analytics.git
 cd analytics
 sudo ./server-setup.sh
 ```
@@ -41,9 +41,9 @@ Clone your repository to the server:
 # Switch to deploy user
 sudo -u deploy -i
 
-# Clone repository
-cd /home/deploy
-git clone https://github.com/your-org/analytics.git
+# Clone repository (if not already cloned)
+cd /home/tuanbt
+# Repository should already be at /home/tuanbt/analytics
 cd analytics
 ```
 
